@@ -4,9 +4,8 @@ import time
 import importlib
 import sys
 import os
-import requests
 from pathlib import Path
-from cases_data import LOCAL_CASES, CATEGORIES
+from cases_data import LOCAL_CASES, CATEGORIES, PATNA_LAWYERS, match_lawyers_to_category
 from gemini_api import analyze_case, score_matches
 from pdf_report import generate_pdf
 
@@ -35,49 +34,11 @@ except Exception as _import_err:
     build_query = _missing_kanoon_scraper
 
 def get_lawyers_for_case(city, category):
-    if not city:
-        return []
-
-    url = "https://nominatim.openstreetmap.org/search"
-    headers = {"User-Agent": "LexMatchAI-Hackathon-Project/1.0 (test@example.com)"}
-    params = {
-        "q": f"advocate {city} India",
-        "format": "json",
-        "addressdetails": 1,
-        "limit": 20
-    }
-
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            real_lawyers = []
-            
-            for item in data:
-                name = item.get("name", "")
-                
-                # Filter out generic pins
-                if not name or name.lower() in ["lawyer", "advocate", "notary", "court", "high court", "district court"]:
-                    continue 
-                    
-                full_address = item.get("display_name", "Address not available")
-                
-                real_lawyers.append({
-                    "name": name,
-                    "city": city.title(),
-                    "specialization": f"{category.title()} Law" if category else "General Law",
-                    "address": full_address,
-                    "phone": "Search online for contact", 
-                    "email": "N/A"
-                })
-                
-            return real_lawyers
-
-    except Exception as e:
-        print(f"OSM API Error: {e}")
-
-    return []
+    """
+    Return lawyers from the local freelaw.in dataset filtered by
+    case category and city.  Falls back gracefully if no exact match.
+    """
+    return match_lawyers_to_category(category=category, city=city)
 
 # ═══════════════════════════════════════════════════════════════
 # PAGE CONFIG
@@ -500,7 +461,7 @@ elif st.session_state.page == "analyzer":
                 } for i,c in enumerate(combined)], key=lambda x: x["matchScore"], reverse=True)
                 st.session_state.results = scored
 
-                stx.info(f"👤 Searching OSM directory for lawyers in {st.session_state.city or 'your area'}...")
+                stx.info(f"👤 Matching verified advocates for {st.session_state.category} cases...")
                 pb.progress(72)
                 st.session_state.lawyers = get_lawyers_for_case(
                     st.session_state.city or "Patna", st.session_state.category)
@@ -635,30 +596,32 @@ elif st.session_state.page == "analyzer":
                         """, unsafe_allow_html=True)
 
         with t2:
-            st.markdown(f"### Top Verified Advocates in **{city}**")
+            st.markdown(f"### Top Verified Advocates for **{st.session_state.category.title()}** Cases")
             if not lawyers:
-                st.warning(f"No lawyers found in OpenStreetMap for '{city}'. Try entering a major nearby city.")
+                st.warning("No matching advocates found. Showing all Bihar advocates.")
             else:
-                st.success(f"✅ Found **{len(lawyers)}** real legal professionals in **{city}** via OpenStreetMap.")
+                st.success(f"✅ Found **{len(lawyers)}** verified advocates specialising in **{st.session_state.category.title()}** law — sourced from freelaw.in")
                 st.markdown("<br>", unsafe_allow_html=True)
 
                 for lawyer in lawyers:
-                    with st.expander(f"👤 {lawyer['name']}  |  📍 {lawyer.get('city',city)}"):
+                    verified_badge = "✅ Verified" if lawyer.get("rating","") == "✅ Verified" else "🔵 Registered"
+                    with st.expander(f"👤 {lawyer['name']}  |  📍 {lawyer.get('city', city)}  {verified_badge}"):
                         lc1, lc2 = st.columns(2)
                         with lc1:
                             st.markdown("**📋 Professional Profile**")
-                            st.markdown(f"⚖️ **Expertise:** {lawyer.get('specialization','N/A')}")
-                            st.markdown(f"📍 **Address:** {lawyer.get('address','N/A')}")
+                            st.markdown(f"⚖️ **Specialization:** {lawyer.get('specialization','N/A')}")
+                            st.markdown(f"🎓 **Qualification:** {lawyer.get('qualification','N/A')}")
+                            st.markdown(f"📍 **Location:** {lawyer.get('address','N/A')}")
+                            st.markdown(f"🏛️ **Bar Council:** {lawyer.get('court','Bihar Bar Council')}")
                         with lc2:
                             st.markdown("**📞 Contact Information**")
-                            st.markdown(f"📞 `{lawyer.get('phone','Search online for contact')}`")
-                            st.markdown(f"✉️ `{lawyer.get('email','N/A')}`")
-                            
-                            # Real-world logic: OSM rarely gives phones. If it does, show the button.
-                            ph = str(lawyer.get("phone","")).replace("+","").replace("-","").replace(" ","")
-                            if ph and ph.isdigit():
-                                wa = f"https://wa.me/91{ph[-10:]}?text=Hello, I need help with a {st.session_state.category} case"
-                                st.markdown(f"<a href='{wa}' target='_blank' style='background:#1a202c; color:#ffffff; padding:10px 20px; border-radius:4px; text-decoration:none; font-size:14px; font-weight:600; display:inline-block; margin-top:8px;'>💬 Contact via WhatsApp</a>", unsafe_allow_html=True)
+                            ph = str(lawyer.get("phone",""))
+                            st.markdown(f"📞 `{ph}`")
+                            st.markdown(f"🌐 [View on freelaw.in](https://www.freelaw.in/advocates/directory?name=&state=bihar)")
+                            ph_clean = ph.replace("+","").replace("-","").replace(" ","")
+                            if ph_clean.isdigit():
+                                wa = f"https://wa.me/91{ph_clean[-10:]}?text=Hello, I need help with a {st.session_state.category} case"
+                                st.markdown(f"<a href='{wa}' target='_blank' style='background:#1a202c; color:#ffffff; padding:10px 20px; border-radius:4px; text-decoration:none; font-size:14px; font-weight:600; display:inline-block; margin-top:8px;'>💬 WhatsApp</a>", unsafe_allow_html=True)
 
         with t3:
             st.markdown("""
@@ -822,44 +785,51 @@ elif st.session_state.page == "lawyers":
       <div style='font-size:12px; font-weight:700; letter-spacing:3px; color:#4a5568; margin-bottom:8px'>LEGAL DIRECTORY</div>
       <h1 style='font-size:40px; margin:0'>Find the Right Expert</h1>
       <p style='color:#4a5568; margin-top:8px; font-size:16px'>
-        Search the OpenStreetMap directory for real advocates in any Indian city.
+        Browse verified Bihar advocates sourced from <strong>freelaw.in</strong> — filtered by your case type and city.
       </p>
     </div>
     """, unsafe_allow_html=True)
 
     ls1,ls2,ls3 = st.columns(3)
-    with ls1: search_city = st.text_input("Enter City", placeholder="e.g. Patna, Delhi...")
+    with ls1: search_city = st.text_input("Enter City / District", placeholder="e.g. Patna, Gaya, Muzaffarpur...")
     with ls2:
         specs = ["All","Criminal","Civil","Family","Corporate","Constitutional","Environmental"]
         search_spec = st.selectbox("Select Specialization", specs)
     with ls3:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🔍 Search Directory →", use_container_width=True):
-            if search_city:
-                with st.spinner(f"Fetching live data from OpenStreetMap for {search_city}..."):
-                    cat_k = search_spec.lower() if search_spec != "All" else ""
-                    st.session_state.lawyers = get_lawyers_for_case(search_city, cat_k)
-                    st.session_state.city    = search_city
-                    st.rerun()
+            cat_k = search_spec.lower() if search_spec != "All" else ""
+            results = match_lawyers_to_category(category=cat_k, city=search_city)
+            st.session_state.lawyers = results
+            st.session_state.city    = search_city or "Bihar"
+            st.rerun()
 
     if st.session_state.lawyers:
         lawyers = st.session_state.lawyers
         city    = st.session_state.city
 
-        st.success(f"✅ Successfully found **{len(lawyers)}** legal professionals in **{city}**.")
+        st.success(f"✅ Found **{len(lawyers)}** verified advocates matching your criteria.")
         st.markdown("<br>", unsafe_allow_html=True)
         
         for lawyer in lawyers:
-            with st.expander(f"👤 {lawyer['name']}  ·  {lawyer.get('specialization','')}  ·  📍 {lawyer.get('city',city)}"):
+            verified_badge = "✅ Verified" if lawyer.get("rating","") == "✅ Verified" else "🔵 Registered"
+            with st.expander(f"👤 {lawyer['name']}  ·  {lawyer.get('specialization','')}  ·  📍 {lawyer.get('city',city)}  {verified_badge}"):
                 lc1, lc2 = st.columns(2)
                 with lc1:
                     st.markdown("**📋 Professional Profile**")
-                    st.markdown(f"⚖️ **Expertise:** {lawyer.get('specialization','N/A')}")
-                    st.markdown(f"📍 **Address:** {lawyer.get('address','N/A')}")
+                    st.markdown(f"⚖️ **Specialization:** {lawyer.get('specialization','N/A')}")
+                    st.markdown(f"🎓 **Qualification:** {lawyer.get('qualification','N/A')}")
+                    st.markdown(f"📍 **Location:** {lawyer.get('address','N/A')}")
+                    st.markdown(f"🏛️ **Bar Council:** {lawyer.get('court','Bihar Bar Council')}")
                 with lc2:
                     st.markdown("**📞 Contact Information**")
-                    st.markdown(f"📞 `{lawyer.get('phone','Search online for contact')}`")
-                    st.markdown(f"✉️ `{lawyer.get('email','N/A')}`")
+                    ph = lawyer.get("phone","")
+                    st.markdown(f"📞 `{ph}`")
+                    st.markdown(f"🌐 Source: [freelaw.in](https://www.freelaw.in/advocates/directory?name=&state=bihar)")
+                    if ph and ph.replace("+","").replace("-","").replace(" ","").isdigit():
+                        ph_clean = ph.replace("+","").replace("-","").replace(" ","")
+                        wa = f"https://wa.me/91{ph_clean[-10:]}?text=Hello, I need legal help with a case"
+                        st.markdown(f"<a href='{wa}' target='_blank' style='background:#1a202c; color:#ffffff; padding:10px 20px; border-radius:4px; text-decoration:none; font-size:14px; font-weight:600; display:inline-block; margin-top:8px;'>💬 WhatsApp</a>", unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════
