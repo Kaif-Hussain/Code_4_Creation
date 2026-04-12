@@ -83,7 +83,7 @@ def get_lawyers_for_case(city, category):
 # PAGE CONFIG
 # ═══════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="LexMatch AI — Law & Justice Platform",
+    page_title="JUSTICE GPT— Law & Justice Platform",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -204,7 +204,7 @@ with st.sidebar:
     <div style='text-align:center; padding:24px 0 20px'>
       <div style='font-size:40px'>⚖️</div>
       <div style='font-family:Playfair Display,serif; font-size:26px;
-                  color:#ffffff; font-weight:700; margin-top:8px'>LexMatch AI</div>
+                  color:#ffffff; font-weight:700; margin-top:8px'>JUSTICE GPT</div>
       <div style='font-size:11px; letter-spacing:3px; color:#9ca3af; margin-top:4px; font-weight:600'>
         LAW & JUSTICE PLATFORM
       </div>
@@ -223,7 +223,7 @@ with st.sidebar:
         active = st.session_state.page == key
         bg     = "#1f2937" if active else "transparent"
         border = "#b8963e" if active else "transparent"
-        color  = "#ffffff" if active else "#9ca3af"
+        color  = "#fe2323" if active else "#7D8D9B"
         st.markdown(f"""
         <div style='background:{bg}; border-left:3px solid {border};
                     padding:12px 16px; margin-bottom:4px; border-radius:0 6px 6px 0;
@@ -237,9 +237,8 @@ with st.sidebar:
     st.markdown("""
     <hr style='border-color:#374151; margin:20px 0'>
     <div style='font-size:11px; color:#6b7280; text-align:center; letter-spacing:1px; line-height:2'>
-      HACKATHON 2026<br>
-      <span style='color:#9ca3af; font-weight:600'>Groq + Llama 3.3 70B</span>
-    </div>
+      CREATED BY TEAM CODE_4_CREATION<br>
+      
     """, unsafe_allow_html=True)
 
 
@@ -254,7 +253,7 @@ if st.session_state.page == "home":
         HACKATHON 2026 · LAW & JUSTICE
       </div>
       <h1 style='font-size:clamp(40px,7vw,72px); margin:0; line-height:1.1; color:#000000'>
-        LexMatch AI
+        JUSTICE GPT
       </h1>
       <p style='font-size:16px; color:#1a202c; margin:16px 0 8px; letter-spacing:2px; font-weight:600'>
         CASE ANALYSIS · PRECEDENT MATCHING · LAWYER INTELLIGENCE
@@ -871,7 +870,7 @@ elif st.session_state.page == "about":
     st.markdown("""
     <div style='padding:24px 0 16px'>
       <div style='font-size:12px; font-weight:700; letter-spacing:3px; color:#4a5568; margin-bottom:8px'>HACKATHON 2026</div>
-      <h1 style='font-size:40px; margin:0'>About LexMatch AI</h1>
+      <h1 style='font-size:40px; margin:0'>About JUSTICE GPT</h1>
       <p style='color:#4a5568; margin-top:8px; font-size:16px'>Law & Justice Track · AI-Powered Legal Platform</p>
     </div>
     """, unsafe_allow_html=True)
