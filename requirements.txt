@@ -2,3 +2,4 @@ streamlit
 groq
 reportlab
 requests
+beautifulsoup4
